@@ -7,6 +7,7 @@ use std::time::Duration;
 use rand::prelude::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::messagebox::{self, ButtonData, MessageBoxButtonFlag, MessageBoxFlag};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
@@ -151,7 +152,6 @@ impl World {
     /// Returns true, if player still alive
     fn tick(&mut self) -> bool {
         self.timer += 1;
-        self.timer %= Self::SPAWN_DELAY;
         match self.last_action.take() {
             Some(Action::Left) => self.player.1.left(),
             Some(Action::Right) => self.player.1.right(),
@@ -172,7 +172,7 @@ impl World {
         self.cleanup();
 
         // generating newer ones
-        if self.timer == 0 {
+        if self.timer % Self::SPAWN_DELAY == 0 {
             let num = self.rng.gen_range(2, 10);
             eprintln!("spawned {}", num);
             for _ in 0..num {
@@ -259,9 +259,20 @@ pub fn run(mut canvas: WindowCanvas, sdl_context: Sdl) {
             }
         }
         if !world.tick() {
-            println!(
-                "Game over! Your points: {}",
-                world.timer as f64 / World::SPAWN_DELAY as f64
+            let id = 1;
+            let button = ButtonData {
+                flags: MessageBoxButtonFlag::RETURNKEY_DEFAULT,
+                button_id: id,
+                text: "Ok",
+            };
+            let points = world.timer as f64 / World::SPAWN_DELAY as f64;
+            let _ = messagebox::show_message_box(
+                MessageBoxFlag::INFORMATION,
+                &[button],
+                "Game over!",
+                &format!("Your points: {}", points),
+                canvas.window(),
+                None,
             );
             return;
         }
