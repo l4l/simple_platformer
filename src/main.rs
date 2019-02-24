@@ -7,7 +7,7 @@ use std::time::Duration;
 use rand::prelude::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::messagebox::{self, ButtonData, MessageBoxButtonFlag, MessageBoxFlag};
+use sdl2::messagebox::{self, ButtonData, ClickedButton, MessageBoxButtonFlag, MessageBoxFlag};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
@@ -218,7 +218,13 @@ impl World {
     }
 }
 
-pub fn run(mut canvas: WindowCanvas, sdl_context: Sdl) {
+pub enum Finished {
+    Exit,
+    Restart,
+    Error,
+}
+
+pub fn run(canvas: &mut WindowCanvas, sdl_context: &mut Sdl) -> Finished {
     canvas
         .window_mut()
         .set_title("Simple platformer")
@@ -238,7 +244,7 @@ pub fn run(mut canvas: WindowCanvas, sdl_context: Sdl) {
                 | Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     ..
-                } => return,
+                } => return Finished::Exit,
                 Event::KeyDown {
                     keycode: Some(Keycode::Down),
                     ..
@@ -259,34 +265,50 @@ pub fn run(mut canvas: WindowCanvas, sdl_context: Sdl) {
             }
         }
         if !world.tick() {
-            let id = 1;
-            let button = ButtonData {
-                flags: MessageBoxButtonFlag::RETURNKEY_DEFAULT,
-                button_id: id,
-                text: "Ok",
-            };
+            let restart_id = 1;
+            let exit_id = 2;
+            let buttons = [
+                ButtonData {
+                    flags: MessageBoxButtonFlag::RETURNKEY_DEFAULT,
+                    button_id: restart_id,
+                    text: "Restart",
+                },
+                ButtonData {
+                    flags: MessageBoxButtonFlag::ESCAPEKEY_DEFAULT,
+                    button_id: exit_id,
+                    text: "Exit",
+                },
+            ];
             let points = world.timer as f64 / World::SPAWN_DELAY as f64;
-            let _ = messagebox::show_message_box(
+            let clicked = messagebox::show_message_box(
                 MessageBoxFlag::INFORMATION,
-                &[button],
+                &buttons,
                 "Game over!",
                 &format!("Your points: {}", points),
                 canvas.window(),
                 None,
             );
-            return;
+            return match clicked {
+                Ok(ClickedButton::CloseButton) => Finished::Exit,
+                Ok(ClickedButton::CustomButton(ButtonData { button_id, .. })) => match button_id {
+                    id if id == &exit_id => Finished::Exit,
+                    id if id == &restart_id => Finished::Restart,
+                    _ => Finished::Error,
+                },
+                Err(_) => Finished::Error,
+            };
         }
 
         canvas.set_draw_color(Color::RGB(255, 0, 0));
         if let Err(e) = world.draw_obstacles(|x| canvas.draw_rect(x)) {
             eprintln!("{:?}", e);
-            return;
+            return Finished::Error;
         }
         canvas.present();
         canvas.set_draw_color(Color::RGB(0, 255, 255));
         if let Err(e) = world.draw_player(|x| canvas.draw_rect(x)) {
             eprintln!("{:?}", e);
-            return;
+            return Finished::Error;
         }
         canvas.present();
         thread::sleep(Duration::from_millis(10));
@@ -294,7 +316,7 @@ pub fn run(mut canvas: WindowCanvas, sdl_context: Sdl) {
 }
 
 pub fn main() {
-    let sdl_context = sdl2::init().unwrap();
+    let mut sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
@@ -303,7 +325,7 @@ pub fn main() {
         .build()
         .unwrap();
 
-    let canvas = window.into_canvas().build().unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
 
-    run(canvas, sdl_context);
+    while let Finished::Restart = run(&mut canvas, &mut sdl_context) {}
 }
