@@ -49,13 +49,13 @@ impl Position {
     }
 
     fn down(&mut self) {
-        if self.y != 0 {
+        if self.y != HEIGHT as isize {
             self.y += 1;
         }
     }
 
     fn up(&mut self) {
-        if self.y != HEIGHT as isize {
+        if self.y != 0 {
             self.y -= 1;
         }
     }
