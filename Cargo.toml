@@ -1,0 +1,9 @@
+[package]
+name = "simple_platformer"
+version = "0.1.0"
+authors = ["Kitsu <mail@kitsu.me>"]
+edition = "2018"
+
+[dependencies]
+sdl2 = "0.32.1"
+rand = "0.6.5"
